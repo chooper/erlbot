@@ -13,13 +13,15 @@
          terminate/2,
          code_change/3]).
  
-% state
+% records
 -record(state, {}).
+-include_lib("irc_lib/src/proto.hrl").
 
 start_link() ->
     gen_server:start_link({local, ?MODULE}, ?MODULE, [], []).
 
 init([]) ->
+    lager:set_loglevel(lager_console_backend, debug),
     irc_lib_sup:start_link(),
     {ok, ClientPid} = irc_lib_sup:start_irc_client(?MODULE, {<<"dev.pearachute.net">>, <<>>}, 6667, [{<<"#bottest">>, <<>>}], <<"mynameiserl">>, false, 30000),
     register(irc_client_pid, ClientPid),
@@ -38,7 +40,28 @@ handle_info({incoming_message, From, IncomingMessage}, State) ->
     lager:debug("Incoming message: ~p ~p ~n", [IncomingMessage, From]),
     {noreply, State};
 
+handle_info({irc_line, {irc_strings, Prefix, Command, Args}}, State) ->
+    R = #irc_strings{prefix = Prefix, cmd = Command, args = Args},
+
+    %%
+    %% begin main parsing here
+    %%
+    case R of
+        %%
+        %% see https://www.alien.net.au/irc/irc2numerics.html or RFC 1459
+        %%
+
+        %% needed chanops
+        #irc_strings{cmd = "482", args = [_, Channel, Msg]} ->
+            lager:warning("Needed chanops in ~p, got error instead: ~p", [Channel, Msg]),
+            {noreply, State};
+
+        _ ->
+            {noreply, State}
+    end;
+
 handle_info({names, Channel, Names}, State) ->
+    lager:info("channel: ~p, names: ~p", [Channel,Names]),
     lists:foreach(fun(Name) ->
                     timer:sleep(200),
                     irc_client_pid ! {raw, "MODE " ++ Channel ++ " +o " ++ Name}
