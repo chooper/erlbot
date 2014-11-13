@@ -51,6 +51,18 @@ handle_info({irc_line, {irc_strings, Prefix, Command, Args}}, State) ->
         %% see https://www.alien.net.au/irc/irc2numerics.html or RFC 1459
         %%
 
+        %% names reply
+        #irc_strings{cmd = "353", args = [_,_,Channel,RawNames]} ->
+            %% Strip chars off names
+            %% TODO clean this mess
+            Names = [ string:strip(string:strip(string:strip(N, left, $:), left, $@), left, $+) || N <- string:tokens(RawNames, " ") ],
+            lists:foreach(fun(Name) ->
+                    timer:sleep(200),
+                    irc_client_pid ! {raw, "MODE " ++ Channel ++ " +o " ++ Name}
+                  end,
+                  Names),
+            {noreply, State};
+
         %% needed chanops
         #irc_strings{cmd = "482", args = [_, Channel, Msg]} ->
             lager:warning("Needed chanops in ~p, got error instead: ~p", [Channel, Msg]),
@@ -59,15 +71,6 @@ handle_info({irc_line, {irc_strings, Prefix, Command, Args}}, State) ->
         _ ->
             {noreply, State}
     end;
-
-handle_info({names, Channel, Names}, State) ->
-    lager:info("channel: ~p, names: ~p", [Channel,Names]),
-    lists:foreach(fun(Name) ->
-                    timer:sleep(200),
-                    irc_client_pid ! {raw, "MODE " ++ Channel ++ " +o " ++ Name}
-                  end,
-                  Names),
-    {noreply, State};
 
 handle_info(Info, State) ->
     lager:debug("handle_info: ~p ~p ~n", [Info, State]),
