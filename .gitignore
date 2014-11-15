@@ -1,3 +1,5 @@
+# vim
+.*.swp
 .eunit
 deps/*
 *.o
