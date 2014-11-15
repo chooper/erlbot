@@ -21,11 +21,15 @@ start_link() ->
     gen_server:start_link({local, ?MODULE}, ?MODULE, [], []).
 
 init([]) ->
+    %% TODO handle unset variables
+    Server = list_to_binary(os:getenv("IRC_SERVER")),
+    Channel = list_to_binary(os:getenv("IRC_CHANNEL")),
+    Nickname = list_to_binary(os:getenv("IRC_NICKNAME")),
     lager:set_loglevel(lager_console_backend, debug),
     irc_lib_sup:start_link(),
-    {ok, ClientPid} = irc_lib_sup:start_irc_client(?MODULE, {<<"dev.pearachute.net">>, <<>>}, 6667, [{<<"#bottest">>, <<>>}], <<"mynameiserl">>, false, 30000),
+    {ok, ClientPid} = irc_lib_sup:start_irc_client(?MODULE, {Server, <<>>}, 6667, [{Channel, <<>>}], Nickname, false, 30000),
     register(irc_client_pid, ClientPid),
-    {ok, _} = timer:send_interval(timer:seconds(10), ClientPid, {raw, "NAMES #bottest"}), %% TODO don't hardcode this
+    {ok, _} = timer:send_interval(timer:seconds(10), ClientPid, {raw, "NAMES " ++ binary_to_list(Channel)}),
     {ok, #state{}}.
  
 handle_call(Request, From, State) ->
