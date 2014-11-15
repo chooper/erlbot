@@ -1,0 +1,20 @@
+#!/bin/bash
+
+test -z "$1" && { echo "Usage: $0 <target>"; exit 1; }
+TARGET="$1"
+
+set -ex
+
+# compile
+./rebar clean
+./rebar delete-deps
+./rebar get-deps
+./rebar compile
+./rebar generate
+
+# install
+cp -r admin release/rel/erlbot/
+ssh "$TARGET" 'rm -fr rel'
+rsync -avzhc release/rel/erlbot "$TARGET:."
+ssh "$TARGET" 'cd erlbot && sudo ./admin/bootstrap.sh && ./admin/run.sh'
+

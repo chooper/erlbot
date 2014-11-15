@@ -1,0 +1,25 @@
+#!/bin/bash
+
+usage() {
+    echo "Usage: $0 <target> <irc server> <irc channel> <irc nickname>";
+    exit 1;
+}
+
+test -z "$1" && usage
+test -z "$2" && usage
+test -z "$3" && usage
+test -z "$4" && usage
+
+TARGET="$1"
+IRC_SERVER="$2"
+IRC_CHANNEL="$3"
+IRC_NICKNAME="$4"
+
+echo "IRC_SERVER=$IRC_SERVER" > /tmp/erlbot.env
+echo "IRC_CHANNEL=$IRC_CHANNEL" >> /tmp/erlbot.env
+echo "IRC_NICKNAME=$IRC_NICKNAME" >> /tmp/erlbot.env
+
+set -ex
+
+scp /tmp/erlbot.env "$TARGET:erlbot.env"
+
