@@ -1,7 +1,8 @@
-# vim
 .*.swp
 .eunit
 deps/*
+release/*/deps/*
+release/rel/
 *.o
 *.beam
 *.plt
