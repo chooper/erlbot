@@ -96,13 +96,13 @@ code_change(_OldVsn, State, _Extra) ->
  
 %% Internal functions
 
-needs_op([$@|_]) -> true;
-needs_op([_|_])  -> false.
+needs_op([$@|_]) -> false;
+needs_op([_|_])  -> true.
 
 %% tests
 
 needs_op_test() ->
-    ?assertEqual(true,  needs_op("@user")),
-    ?assertEqual(false, needs_op("+user")),
-    ?assertEqual(false, needs_op("user")).
+    ?assertEqual(false, needs_op("@user")),
+    ?assertEqual(true,  needs_op("+user")),
+    ?assertEqual(true,  needs_op("user")).
 
