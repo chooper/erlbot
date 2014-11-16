@@ -68,7 +68,6 @@ handle_info({irc_line, {irc_strings, Prefix, Command, Args}}, State) ->
                         true == NeedsOp ->
                             irc_client_pid ! {raw, "MODE " ++ Channel ++ " +o " ++ Name};
                         true ->
-
                             false
                     end
                   end,
