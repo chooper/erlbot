@@ -72,7 +72,7 @@ handle_info({irc_line, {irc_strings, Prefix, Command, Args}}, State) ->
                             false
                     end
                   end,
-                  Names),
+                  string:tokens(Names, " ")),
             {noreply, State};
 
         %% needed chanops
