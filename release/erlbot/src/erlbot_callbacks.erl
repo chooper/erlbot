@@ -13,9 +13,12 @@
          terminate/2,
          code_change/3]).
  
-% records
+%% records
 -record(state, {}).
+
+%% includes
 -include_lib("irc_lib/src/proto.hrl").
+-include_lib("eunit/include/eunit.hrl").
 
 start_link() ->
     gen_server:start_link({local, ?MODULE}, ?MODULE, [], []).
@@ -56,13 +59,18 @@ handle_info({irc_line, {irc_strings, Prefix, Command, Args}}, State) ->
         %%
 
         %% names reply
-        #irc_strings{cmd = "353", args = [_,_,Channel,RawNames]} ->
+        #irc_strings{cmd = "353", args = [_,_,Channel,Names]} ->
             %% Strip chars off names
             %% TODO clean this mess
-            Names = [ string:strip(string:strip(string:strip(N, left, $:), left, $@), left, $+) || N <- string:tokens(RawNames, " ") ],
             lists:foreach(fun(Name) ->
-                    timer:sleep(200),
-                    irc_client_pid ! {raw, "MODE " ++ Channel ++ " +o " ++ Name}
+                    NeedsOp = needs_op(Name),
+                    if
+                        true == NeedsOp ->
+                            irc_client_pid ! {raw, "MODE " ++ Channel ++ " +o " ++ Name};
+                        true ->
+
+                            false
+                    end
                   end,
                   Names),
             {noreply, State};
@@ -87,3 +95,14 @@ code_change(_OldVsn, State, _Extra) ->
     {ok, State}.
  
 %% Internal functions
+
+needs_op([$@|_]) -> true;
+needs_op([_|_])  -> false.
+
+%% tests
+
+needs_op_test() ->
+    ?assertEqual(true,  needs_op("@user")),
+    ?assertEqual(false, needs_op("+user")),
+    ?assertEqual(false, needs_op("user")).
+
