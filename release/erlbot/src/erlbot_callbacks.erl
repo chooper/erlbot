@@ -32,6 +32,7 @@ init([]) ->
     irc_lib_sup:start_link(),
     {ok, ClientPid} = irc_lib_sup:start_irc_client(?MODULE, {Server, <<>>}, 6667, [{Channel, <<>>}], Nickname, false, 30000),
     register(irc_client_pid, ClientPid),
+    %% TODO switch to use req_names function
     {ok, _} = timer:send_interval(timer:seconds(10), ClientPid, {raw, "NAMES " ++ binary_to_list(Channel)}),
     {ok, #state{}}.
  
@@ -74,6 +75,16 @@ handle_info({irc_line, {irc_strings, Prefix, Command, Args}}, State) ->
                   string:tokens(Names, " ")),
             {noreply, State};
 
+        %% trigger a NAMES when someone joins the channel
+        #irc_strings{cmd = "JOIN", args = [Channel|_]} ->
+            req_names(Channel),
+            {noreply, State};
+
+        %% trigger a NAMES when there are any mode changes
+        #irc_strings{cmd = "MODE", args = [Channel|_]} ->
+            req_names(Channel),
+            {noreply, State};
+
         %% needed chanops
         #irc_strings{cmd = "482", args = [_, Channel, Msg]} ->
             lager:warning("Needed chanops in ~p, got error instead: ~p", [Channel, Msg]),
@@ -94,6 +105,9 @@ code_change(_OldVsn, State, _Extra) ->
     {ok, State}.
  
 %% Internal functions
+
+req_names(Channel) ->
+    irc_client_pid ! {raw, "NAMES " ++ Channel}.
 
 needs_op([$@|_]) -> false;
 needs_op([_|_])  -> true.
