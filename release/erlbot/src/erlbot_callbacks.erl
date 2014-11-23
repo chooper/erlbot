@@ -30,10 +30,7 @@ init([]) ->
     Nickname = list_to_binary(os:getenv("IRC_NICKNAME")),
     lager:set_loglevel(lager_console_backend, debug),
     irc_lib_sup:start_link(),
-    {ok, ClientPid} = irc_lib_sup:start_irc_client(?MODULE, {Server, <<>>}, 6667, [{Channel, <<>>}], Nickname, false, 30000),
-    register(irc_client_pid, ClientPid),
-    %% TODO switch to use req_names function
-    {ok, _} = timer:send_interval(timer:seconds(10), ClientPid, {raw, "NAMES " ++ binary_to_list(Channel)}),
+    irc_lib_sup:start_irc_client(?MODULE, {Server, <<>>}, 6667, [{Channel, <<>>}], Nickname, false, 30000),
     {ok, #state{}}.
  
 handle_call(Request, From, State) ->
