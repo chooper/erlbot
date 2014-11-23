@@ -30,7 +30,8 @@ init([]) ->
     Nickname = list_to_binary(os:getenv("IRC_NICKNAME")),
     lager:set_loglevel(lager_console_backend, debug),
     irc_lib_sup:start_link(),
-    irc_lib_sup:start_irc_client(?MODULE, {Server, <<>>}, 6667, [{Channel, <<>>}], Nickname, false, 30000),
+    {ok, ClientPid} = irc_lib_sup:start_irc_client(?MODULE, {Server, <<>>}, 6667, [{Channel, <<>>}], Nickname, false, 30000),
+    register(irc_lib_client, ClientPid),
     {ok, #state{}}.
  
 handle_call(Request, From, State) ->
@@ -58,7 +59,7 @@ handle_info({irc_line, {irc_strings, _Prefix, "353", [_,_,Channel,Names]}}, Stat
             NeedsOp = needs_op(Name),
             if
                 true == NeedsOp ->
-                    irc_client_pid ! {raw, "MODE " ++ Channel ++ " +o " ++ Name};
+                    irc_lib_client ! {raw, "MODE " ++ Channel ++ " +o " ++ Name};
                 true ->
                     false
             end
@@ -72,10 +73,9 @@ handle_info({irc_line, {irc_strings, _Prefix, "JOIN", [Channel|_]}}, State) ->
     {noreply, State};
 
 %% trigger a NAMES when there are any mode changes
-%% TODO this is sloppy
-handle_info({irc_line, {irc_strings, _Prefix, "MODE", [["#"|ChannelName]|_]}}, State) ->
-    Channel = "#" ++ ChannelName,
-    req_names("#" ++ Channel),
+handle_info({irc_line, {irc_strings, _Prefix, "MODE", [Channel|_Modes]}}, State) ->
+    %% TODO ensure this is actually a channel mode
+    req_names(Channel),
     {noreply, State};
 
 %% needed chanops
@@ -104,7 +104,8 @@ code_change(_OldVsn, State, _Extra) ->
 %% Internal functions
 
 req_names(Channel) ->
-    irc_client_pid ! {raw, "NAMES " ++ Channel}.
+    lager:debug("req_names: ~p", [Channel]),
+    irc_lib_client ! {raw, "NAMES " ++ Channel}.
 
 needs_op([$@|_]) -> false;
 needs_op([_|_])  -> true.
