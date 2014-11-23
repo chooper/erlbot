@@ -72,8 +72,10 @@ handle_info({irc_line, {irc_strings, _Prefix, "JOIN", [Channel|_]}}, State) ->
     {noreply, State};
 
 %% trigger a NAMES when there are any mode changes
-handle_info({irc_line, {irc_strings, _Prefix, "MODE", [Channel|_]}}, State) ->
-    req_names(Channel),
+%% TODO this is sloppy
+handle_info({irc_line, {irc_strings, _Prefix, "MODE", [["#"|ChannelName]|_]}}, State) ->
+    Channel = "#" ++ ChannelName,
+    req_names("#" ++ Channel),
     {noreply, State};
 
 %% needed chanops
