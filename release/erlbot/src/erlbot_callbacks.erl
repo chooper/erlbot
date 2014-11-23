@@ -45,51 +45,49 @@ handle_info({incoming_message, From, IncomingMessage}, State) ->
     lager:debug("Incoming message: ~p ~p ~n", [IncomingMessage, From]),
     {noreply, State};
 
-handle_info({irc_line, {irc_strings, Prefix, Command, Args}}, State) ->
-    R = #irc_strings{prefix = Prefix, cmd = Command, args = Args},
+%%
+%% begin handling of irc lines
+%% see https://www.alien.net.au/irc/irc2numerics.html or RFC 1459
+%%
 
-    %%
-    %% begin main parsing here
-    %%
-    case R of
-        %%
-        %% see https://www.alien.net.au/irc/irc2numerics.html or RFC 1459
-        %%
+%% names reply
+handle_info({irc_line, {irc_strings, _Prefix, "353", [_,_,Channel,Names]}}, State) ->
+    %% Strip chars off names
+    %% TODO clean this mess
+    lists:foreach(fun(Name) ->
+            NeedsOp = needs_op(Name),
+            if
+                true == NeedsOp ->
+                    irc_client_pid ! {raw, "MODE " ++ Channel ++ " +o " ++ Name};
+                true ->
+                    false
+            end
+          end,
+          string:tokens(Names, " ")),
+    {noreply, State};
 
-        %% names reply
-        #irc_strings{cmd = "353", args = [_,_,Channel,Names]} ->
-            %% Strip chars off names
-            %% TODO clean this mess
-            lists:foreach(fun(Name) ->
-                    NeedsOp = needs_op(Name),
-                    if
-                        true == NeedsOp ->
-                            irc_client_pid ! {raw, "MODE " ++ Channel ++ " +o " ++ Name};
-                        true ->
-                            false
-                    end
-                  end,
-                  string:tokens(Names, " ")),
-            {noreply, State};
+%% trigger a NAMES when someone joins the channel
+handle_info({irc_line, {irc_strings, _Prefix, "JOIN", [Channel|_]}}, State) ->
+    req_names(Channel),
+    {noreply, State};
 
-        %% trigger a NAMES when someone joins the channel
-        #irc_strings{cmd = "JOIN", args = [Channel|_]} ->
-            req_names(Channel),
-            {noreply, State};
+%% trigger a NAMES when there are any mode changes
+handle_info({irc_line, {irc_strings, _Prefix, "MODE", [Channel|_]}}, State) ->
+    req_names(Channel),
+    {noreply, State};
 
-        %% trigger a NAMES when there are any mode changes
-        #irc_strings{cmd = "MODE", args = [Channel|_]} ->
-            req_names(Channel),
-            {noreply, State};
+%% needed chanops
+handle_info({irc_line, {irc_strings, _Prefix, "482", [_, Channel, Msg]}}, State) ->
+    lager:warning("Needed chanops in ~p, got error instead: ~p", [Channel, Msg]),
+    {noreply, State};
 
-        %% needed chanops
-        #irc_strings{cmd = "482", args = [_, Channel, Msg]} ->
-            lager:warning("Needed chanops in ~p, got error instead: ~p", [Channel, Msg]),
-            {noreply, State};
+%% catch-all
+handle_info({irc_line, {irc_strings, _Prefix, _Command, _Args}}, State) ->
+    {noreply, State};
 
-        _ ->
-            {noreply, State}
-    end;
+%%
+%% end parsing of irc lines
+%%
 
 handle_info(Info, State) ->
     lager:debug("handle_info: ~p ~p ~n", [Info, State]),
