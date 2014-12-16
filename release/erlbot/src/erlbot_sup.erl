@@ -20,7 +20,7 @@ init([]) ->
     MaxRestart = 10,
     MaxTime = 10000,
     %% start order is important
-    {ok, { {one_for_one, MaxRestart, MaxTime}, [
+    {ok, { {one_for_all, MaxRestart, MaxTime}, [
         ?CHILD_SUP(irc_lib_sup),
         ?CHILD(erlbot_callbacks, worker)
     ]} }.
