@@ -1,0 +1,11 @@
+#!/bin/bash
+
+set -ex
+
+# compile
+./rebar clean
+./rebar delete-deps
+./rebar get-deps
+./rebar compile
+./rebar generate
+

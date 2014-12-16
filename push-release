@@ -6,11 +6,7 @@ TARGET="$1"
 set -ex
 
 # compile
-./rebar clean
-./rebar delete-deps
-./rebar get-deps
-./rebar compile
-./rebar generate
+./generate-release
 
 # install
 cp -r admin release/rel/erlbot/
