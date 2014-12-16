@@ -14,7 +14,7 @@
          code_change/3]).
  
 %% records
--record(state, {}).
+-record(state, {client = null}).
 
 %% includes
 -include_lib("irc_lib/src/proto.hrl").
@@ -31,8 +31,7 @@ init([]) ->
     lager:set_loglevel(lager_console_backend, debug),
     irc_lib_sup:start_link(),
     {ok, ClientPid} = irc_lib_sup:start_irc_client(?MODULE, {Server, <<>>}, 6667, [{Channel, <<>>}], Nickname, false, 30000),
-    register(irc_lib_client, ClientPid),
-    {ok, #state{}}.
+    {ok, #state{client = ClientPid}}.
  
 handle_call(Request, From, State) ->
     lager:debug("handle_call: ~p ~p ~p ~n", [Request, From, State]),
@@ -59,7 +58,7 @@ handle_info({irc_line, {irc_strings, _Prefix, "353", [_,_,Channel,Names]}}, Stat
             NeedsOp = needs_op(Name),
             if
                 true == NeedsOp ->
-                    irc_lib_client ! {raw, "MODE " ++ Channel ++ " +o " ++ Name};
+                    State#state.client ! {raw, "MODE " ++ Channel ++ " +o " ++ Name};
                 true ->
                     false
             end
@@ -69,13 +68,13 @@ handle_info({irc_line, {irc_strings, _Prefix, "353", [_,_,Channel,Names]}}, Stat
 
 %% trigger a NAMES when someone joins the channel
 handle_info({irc_line, {irc_strings, _Prefix, "JOIN", [Channel|_]}}, State) ->
-    req_names(Channel),
+    req_names(Channel, State#state.client),
     {noreply, State};
 
 %% trigger a NAMES when there are any mode changes
 handle_info({irc_line, {irc_strings, _Prefix, "MODE", [Channel|_Modes]}}, State) ->
     %% TODO ensure this is actually a channel mode
-    req_names(Channel),
+    req_names(Channel, State#state.client),
     {noreply, State};
 
 %% needed chanops
@@ -103,9 +102,9 @@ code_change(_OldVsn, State, _Extra) ->
  
 %% Internal functions
 
-req_names(Channel) ->
+req_names(Channel, ClientPid) ->
     lager:debug("req_names: ~p", [Channel]),
-    irc_lib_client ! {raw, "NAMES " ++ Channel}.
+    ClientPid ! {raw, "NAMES " ++ Channel}.
 
 needs_op([$@|_]) -> false;
 needs_op([_|_])  -> true.
